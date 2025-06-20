@@ -2,14 +2,24 @@ import { useEffect, useRef, useState } from "react";
 
 // Helper to get the correct WebSocket URL for Codespaces or local
 function getWebSocketUrl() {
-  // If running in Codespaces, use the public URL
+  // Always use the Codespaces public URL if available
   const host = window.location.host;
   if (host.includes("github.dev") || host.includes("app.github.dev")) {
-    // Replace frontend port (5173) with backend port (8000)
-    return `wss://${host.replace(/-5173/, "-8000")}/ws`;
+    // Use the full Codespaces backend URL
+    return "wss://supreme-engine-pjrwjr9gwj637vp6-8000.app.github.dev/ws";
   }
   // Fallback to localhost
   return "wss://localhost:8000/ws";
+}
+
+// Helper: Convert Float32Array [-1,1] to Int16Array (little-endian)
+function floatTo16BitPCM(float32: Float32Array): ArrayBuffer {
+  const int16 = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    let s = Math.max(-1, Math.min(1, float32[i]));
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return int16.buffer;
 }
 
 export default function App() {
@@ -34,7 +44,13 @@ export default function App() {
         const node = new AudioWorkletNode(ctx, "vad-processor");
         node.port.onmessage = (ev) => {
           if (ev.data && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send("speech");
+            // If ev.data.samples is a Float32Array, serialize and send
+            if (ev.data.samples && ev.data.samples instanceof Float32Array) {
+              const buf = floatTo16BitPCM(ev.data.samples);
+              wsRef.current.send(buf);
+            } else {
+              wsRef.current.send("speech"); // fallback
+            }
           }
         };
         src.connect(node);
