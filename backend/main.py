@@ -1,12 +1,21 @@
 from fastapi import FastAPI, WebSocket
 from faster_whisper import WhisperModel
-import asyncio, struct
+import asyncio
+import os
 import numpy as np
 
 app = FastAPI()
 
 # Use the snapshot directory containing model files
-model = WhisperModel("../shared_models/models--Systran--faster-whisper-tiny/snapshots/d90ca5fe260221311c53c58e660288d3deb8d356", device="cpu")
+MODEL_DIR = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "shared_models",
+    "models--Systran--faster-whisper-tiny",
+    "snapshots",
+    "d90ca5fe260221311c53c58e660288d3deb8d356",
+)
+model = WhisperModel(MODEL_DIR, device="cpu")
 
 @app.get("/")
 async def root():
